@@ -2,8 +2,8 @@ import cv2
 import os
 
 # === CONFIGURATION ===
-VIDEO_FOLDER = r"e:\Kush\2nd_year\projects\accident_pred\data\videos\Crash-1500"
-OUTPUT_FOLDER = r"e:\Kush\2nd_year\projects\accident_pred\data\frames\Crash-1500"
+VIDEO_FOLDER = r"e:\Kush\2nd_year\projects\accident_pred\dataset\videos\Crash-1500"
+OUTPUT_FOLDER = r"e:\Kush\2nd_year\projects\accident_pred\dataset\frames\Crash-1500"
 
 # Create output folder
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)

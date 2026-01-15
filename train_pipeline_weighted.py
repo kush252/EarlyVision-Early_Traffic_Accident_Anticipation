@@ -3,12 +3,12 @@ import time
 import json
 import os
 import random
+import numpy as np
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
 from src.data.preprocessor import (
     CRASH_IMG_FOLDER,
-    NORMAL_IMG_FOLDER,
     image_resize_toTensor,
     get_images_labelled,
     FrameDataset,
@@ -17,25 +17,27 @@ from src.data.preprocessor import (
 )
 from src.models.vision_models.cnn_model import SimpleCNN
 
-
 CRASH_LABELS_PATH = r"e:\Kush\2nd_year\projects\accident_pred\dataset\videos\Crash-1500.txt"
 BATCH_SIZE = 4
 SHUFFLE = True
 NUM_WORKERS = 4 
 
-
-def fit_model(train_loader, val_loader, model, num_epochs=10, checkpoint_path=None):
-    criterion = nn.CrossEntropyLoss()
+def fit_model(train_loader, val_loader, model, num_epochs=10, checkpoint_path=None, class_weights=None):
+    if class_weights is not None:
+        criterion = nn.CrossEntropyLoss(weight=class_weights)
+    else:
+        criterion = nn.CrossEntropyLoss()
+        
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     device = next(model.parameters()).device
 
     start_epoch = 0
+
     history = {
         'train_loss': [], 'train_acc': [],
-        'val_loss': [], 'val_acc': []
+        'val_loss': [], 'val_acc': [],"confusion_matrix": {"TN":0,"FN":0,"TP":0,"FP":0}
     }
 
-    # --- Resume Logic ---
     if checkpoint_path and os.path.exists(checkpoint_path):
         print(f"Found checkpoint at '{checkpoint_path}'. Loading...")
         checkpoint = torch.load(checkpoint_path, map_location=device)
@@ -49,7 +51,6 @@ def fit_model(train_loader, val_loader, model, num_epochs=10, checkpoint_path=No
     else:
         print(f"No valid checkpoint found. Starting training from scratch on {device}.")
 
-    # --- Training Loop ---
     for epoch in range(start_epoch, num_epochs):
         model.train()
         running_loss = 0.0
@@ -81,7 +82,6 @@ def fit_model(train_loader, val_loader, model, num_epochs=10, checkpoint_path=No
         history['train_loss'].append(avg_train_loss)
         history['train_acc'].append(train_acc)
 
-        # --- Validation Phase ---
         model.eval()
         val_loss = 0.0
         correct_val = 0
@@ -99,6 +99,15 @@ def fit_model(train_loader, val_loader, model, num_epochs=10, checkpoint_path=No
                 _, predicted = torch.max(outputs.data, 1)
                 total_val += labels.size(0)
                 correct_val += (predicted == labels).sum().item()
+                for p, l in zip(predicted, labels):
+                    if p == 1 and l == 1:
+                        history['confusion_matrix']['TP'] += 1
+                    elif p == 0 and l == 0:
+                        history['confusion_matrix']['TN'] += 1
+                    elif p == 1 and l == 0:
+                        history['confusion_matrix']['FP'] += 1
+                    elif p == 0 and l == 1:
+                        history['confusion_matrix']['FN'] += 1
 
         avg_val_loss = val_loss / len(val_loader)
         val_acc = 100 * correct_val / total_val
@@ -110,7 +119,6 @@ def fit_model(train_loader, val_loader, model, num_epochs=10, checkpoint_path=No
               f"Train Loss: {avg_train_loss:.4f} | Train Acc: {train_acc:.2f}% | "
               f"Val Loss: {avg_val_loss:.4f} | Val Acc: {val_acc:.2f}%")
 
-        # --- Save Checkpoint per Epoch ---
         if checkpoint_path:
             checkpoint = {
                 'epoch': epoch + 1,
@@ -129,9 +137,26 @@ if __name__ == "__main__":
     crash_labels_1d = read_crash_labels(CRASH_LABELS_PATH)
     crash_images_labelled = get_images_labelled(crash_filenames, crash_labels_1d)
     
-    
     random.seed(42)  
     random.shuffle(crash_images_labelled)
+
+    total_samples = len(crash_images_labelled)
+    count_1 = sum(1 for _, lbl in crash_images_labelled if lbl == 1)
+    count_0 = total_samples - count_1
+    
+    print(f"Dataset Statistics: Normal={count_0}, Crash={count_1}")
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+
+    class_weights = None
+    if count_1 > 0 and count_0 > 0:
+        w0 = total_samples / (2 * count_0) 
+        w1 = total_samples / (2 * count_1)
+        class_weights = torch.tensor([w0, w1], dtype=torch.float32).to(device)
+        print(f"Using Class Weights: Normal={w0:.4f}, Crash={w1:.4f}")
+    else:
+        print("Warning: Dataset is pure class (all 0 or all 1). Weights disabled.")
 
     split_ratio = 0.8
     split_idx = int(len(crash_images_labelled) * split_ratio)
@@ -143,11 +168,9 @@ if __name__ == "__main__":
     print(f"Training Samples: {len(train_data)}")
     print(f"Validation Samples: {len(val_data)}")
 
-    
     train_dataset = FrameDataset(CRASH_IMG_FOLDER, train_data, transform=None)
     val_dataset = FrameDataset(CRASH_IMG_FOLDER, val_data, transform=None)
 
-    
     train_loader = DataLoader(
         train_dataset, 
         batch_size=BATCH_SIZE, 
@@ -164,27 +187,24 @@ if __name__ == "__main__":
         pin_memory=True
     )
 
-    
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
     model = SimpleCNN(num_classes=2).to(device)
 
-    # Define paths
-    FINAL_MODEL_PATH = os.path.join("models", "accident_detection_cnn_model.pth")
-    CHECKPOINT_PATH = os.path.join("checkpoint_logs", "training_checkpoint.pth")
-    
+    FINAL_MODEL_PATH = os.path.join("models", "accident_detection_weighted_cnn_model.pth")
+    CHECKPOINT_PATH = os.path.join("checkpoint_logs", "weighted_training_checkpoint.pth")
+    os.makedirs("models", exist_ok=True)
+    os.makedirs("checkpoint_logs", exist_ok=True)
 
     try:
         start_time = time.time()
         print("\nStarting training loop...")
         
-        # Pass checkpoint path for resume capability
         history = fit_model(
             train_loader, 
             val_loader, 
             model, 
             num_epochs=10, 
-            checkpoint_path=CHECKPOINT_PATH
+            checkpoint_path=CHECKPOINT_PATH,
+            class_weights=class_weights
         )
         
         end_time = time.time()
@@ -195,12 +215,31 @@ if __name__ == "__main__":
             print("\nFinal Results:")
             print(f"Final Train Accuracy: {history['train_acc'][-1]:.2f}%")
             print(f"Final Validation Accuracy: {history['val_acc'][-1]:.2f}%")
+        
+        try:
+             precision=history['confusion_matrix']['TP'] / (history['confusion_matrix']['TP'] + history['confusion_matrix']['FP'])
+        except ZeroDivisionError:
+             precision = 0.0
+             
+        try:
+             recall=history['confusion_matrix']['TP'] / (history['confusion_matrix']['TP'] + history['confusion_matrix']['FN'])
+        except ZeroDivisionError:
+             recall = 0.0
 
-        with open("training_history.txt", "w") as f:
+        try:
+             f1_score=2*(precision*recall)/(precision+recall)
+        except ZeroDivisionError:
+             f1_score = 0.0
+
+        print(f"Confusion Matrix: {history['confusion_matrix']}")
+        print(f"Precision: {precision}")
+        print(f"Recall: {recall}")
+        print(f"F1 Score: {f1_score}")
+
+        with open("weighted_training_history.txt", "w") as f:
             json.dump(history, f, indent=4)
-        print("Training history saved to training_history.txt")
+        print("Training history saved to weighted_training_history.txt")
 
-        # Save Final Pure Weights
         torch.save(model.state_dict(), FINAL_MODEL_PATH)
         print(f"Final Model weights saved to {FINAL_MODEL_PATH}")
 

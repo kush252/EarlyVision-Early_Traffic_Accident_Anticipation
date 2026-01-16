@@ -1,33 +1,37 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+
 
 class SimpleCNN(nn.Module):
     def __init__(self, num_classes=2):
         super(SimpleCNN, self).__init__()
-
-        # -------- Convolutional backbone --------
-        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
-        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
-
-        self.pool = nn.MaxPool2d(2, 2)  # halves H, W
-
-        # -------- Projection head --------
+        self.conv1 = self._conv_block(3, 32)
+        self.conv2 = self._conv_block(32, 64)
+        self.conv3 = self._conv_block(64, 128)
+        self.conv4 = self._conv_block(128, 256)
+        self.conv5 = self._conv_block(256, 512)
         self.gap = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(128, num_classes)
+        self.fc = nn.Sequential(
+            nn.Flatten(),
+            nn.Dropout(0.5),
+            nn.Linear(512, num_classes)
+        )
+
+    def _conv_block(self, in_c, out_c):
+        return nn.Sequential(
+            nn.Conv2d(in_c, out_c, kernel_size=3, padding=1),
+            nn.BatchNorm2d(out_c),  # Critical for training deep nets
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2)
+        )
 
     def forward(self, x):
-        # x: (B, 3, 224, 224)
-
-        x = self.pool(F.relu(self.conv1(x)))  # (B, 32, 112, 112)
-        x = self.pool(F.relu(self.conv2(x)))  # (B, 64, 56, 56)
-        x = self.pool(F.relu(self.conv3(x)))  # (B, 128, 28, 28)
-
-        x = self.gap(x)                       # (B, 128, 1, 1)
-        x = x.view(x.size(0), -1)             # (B, 128)
-
-        x = self.fc(x)                        # (B, num_classes)
+        x = self.conv1(x)
+        x = self.conv2(x)
+        x = self.conv3(x)
+        x = self.conv4(x)
+        x = self.conv5(x)
+        x = self.gap(x)
+        x = self.fc(x)
         return x
-
 

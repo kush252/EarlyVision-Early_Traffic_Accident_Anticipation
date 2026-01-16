@@ -7,7 +7,12 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 
 from src.models.vision_models.cnn_model import SimpleCNN
 
+
 class CNNExtractor(nn.Module):
+    """
+    Feature extractor that uses the trained SimpleCNN backbone.
+    Outputs 512-dimensional feature vectors (from the last conv block).
+    """
     def __init__(self, weights_path=None):
         super(CNNExtractor, self).__init__()
         
@@ -24,11 +29,16 @@ class CNNExtractor(nn.Module):
             else:
                 print(f"Warning: Weights path {weights_path} not found. Using random initialization.")
         
-
-        self.base_model.fc = nn.Identity()
+        # Replace the classifier with Flatten only to get 512-dim features
+        # The new model's fc is Sequential(Flatten, Dropout, Linear)
+        # We replace it to only flatten the GAP output: (B, 512, 1, 1) -> (B, 512)
+        self.base_model.fc = nn.Sequential(
+            nn.Flatten()
+        )
 
     def forward(self, x):
         return self.base_model(x)
+
 
 if __name__ == "__main__":
     PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
@@ -44,5 +54,5 @@ if __name__ == "__main__":
     features = extractor(dummy_input)
     
     print(f"Input shape: {dummy_input.shape}")
-    print(f"Output features shape: {features.shape}")
+    print(f"Output features shape: {features.shape}")  # Should be (1, 512)
     print("Extraction successful.")

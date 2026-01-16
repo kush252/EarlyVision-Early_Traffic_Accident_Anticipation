@@ -89,6 +89,9 @@ def fit_model(train_loader, val_loader, model, num_epochs=10, checkpoint_path=No
         correct_val = 0
         total_val = 0
         
+        # Reset confusion matrix for this epoch
+        epoch_cm = {'TN': 0, 'FN': 0, 'TP': 0, 'FP': 0}
+
         with torch.no_grad():
             for images, labels in val_loader:
                 images = images.to(device)
@@ -101,15 +104,19 @@ def fit_model(train_loader, val_loader, model, num_epochs=10, checkpoint_path=No
                 _, predicted = torch.max(outputs.data, 1)
                 total_val += labels.size(0)
                 correct_val += (predicted == labels).sum().item()
+                
                 for p, l in zip(predicted, labels):
                     if p == 1 and l == 1:
-                        history['confusion_matrix']['TP'] += 1
+                        epoch_cm['TP'] += 1
                     elif p == 0 and l == 0:
-                        history['confusion_matrix']['TN'] += 1
+                        epoch_cm['TN'] += 1
                     elif p == 1 and l == 0:
-                        history['confusion_matrix']['FP'] += 1
+                        epoch_cm['FP'] += 1
                     elif p == 0 and l == 1:
-                        history['confusion_matrix']['FN'] += 1
+                        epoch_cm['FN'] += 1
+        
+        # Save the specific confusion matrix for this epoch
+        history['confusion_matrix'] = epoch_cm
 
         avg_val_loss = val_loss / len(val_loader)
         val_acc = 100 * correct_val / total_val

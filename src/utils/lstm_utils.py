@@ -1,4 +1,4 @@
-
+import numpy as np
 def frames_to_sequence(feature_list, L, K, frames_per_video=50):
     sequences = []
 
@@ -24,12 +24,12 @@ def framelabel_to_sequencelabel(label_list,L,K,frames_per_video=50):
     for i in range(video_num):
         start=i*frames_per_video+L
         end=(i*frames_per_video)+frames_per_video
-        for j in range(start,end-K):
+        for j in range(start,end-K+1):
             label=0
-            for k in range(j,j+K):
+            for k in range(j,j+K):  
                 if label_list[k]==1:
                     label=1
                     break
             y.append(label)
         
-    return y
+    return np.array(y)

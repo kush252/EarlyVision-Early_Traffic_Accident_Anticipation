@@ -9,7 +9,6 @@ import time
 import numpy as np
 import plotly.graph_objects as go
 
-# Backend API URL
 API_URL = "http://localhost:8000/predict"
 
 st.set_page_config(page_title="Accident Risk Prediction", layout="wide")
@@ -167,7 +166,6 @@ st.markdown("""
 4. **View Results**: Watch the processed video with real-time risk probability graph.
 """)
 
-# Sidebar for Input Selection
 st.sidebar.header("Input Selection")
 input_option = st.sidebar.radio("Choose Input Source", ("Upload Video", "Use Sample Video"))
 
@@ -176,15 +174,11 @@ video_file_path = None
 if input_option == "Upload Video":
     uploaded_file = st.file_uploader("Upload a video (mp4, avi)", type=["mp4", "avi", "mov"])
     if uploaded_file:
-        # Save uploaded file to temp
         tfile = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
         tfile.write(uploaded_file.read())
         video_file_path = tfile.name
 
 elif input_option == "Use Sample Video":
-    # List samples from the project directory
-    # Assuming the app is run from project root, or we can find absolute paths
-    # Hardcoding paths based on project structure known
     PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     SAMPLE_DIR = os.path.join(PROJECT_ROOT, "sample data")
     
@@ -196,20 +190,15 @@ elif input_option == "Use Sample Video":
     else:
         st.error(f"Sample directory not found: {SAMPLE_DIR}")
 
-# Main Content
 if video_file_path:
-    # Analysis Button Section
     st.subheader("Analysis")
     if st.button("Analyze Risk", type="primary", use_container_width=True):
         progress_bar = st.progress(0)
         status_text = st.empty()
         
         try:
-            # Send to backend
-            # Re-open file for sending
             files = {'file': open(video_file_path, 'rb')}
             
-            # Use stream=True to receive progress updates
             with requests.post(API_URL, files=files, stream=True) as response:
                 
                 if response.status_code == 200:
@@ -231,7 +220,6 @@ if video_file_path:
                             except json.JSONDecodeError:
                                 continue
                     
-                    # Check for results
                     if error_msg:
                         progress_bar.empty()
                         status_text.empty()
@@ -242,11 +230,10 @@ if video_file_path:
                     elif predictions:
                         progress_bar.progress(100)
                         status_text.success("Analysis Complete!")
-                        time.sleep(0.5) # Show 100% briefly
+                        time.sleep(0.5)
                         progress_bar.empty()
                         status_text.empty()
                         
-                        # Auto-scroll to results
                         st.markdown('<div id="results_section"></div>', unsafe_allow_html=True)
                         components.html(
                             """
@@ -262,7 +249,6 @@ if video_file_path:
                         st.divider()
                         st.subheader("Real-time Risk Visualization")
                         
-                        # 3. Side-by-Side Visualization (Video Left, Graph Right)
                         viz_col1, viz_col2 = st.columns([1, 1])
                         
                         with viz_col1:
@@ -274,22 +260,18 @@ if video_file_path:
                             risk_text_placeholder = st.empty()
                             chart_placeholder = st.empty()
                         
-                        # Process video for synchronized playback
                         cap = cv2.VideoCapture(video_file_path)
                         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
                         fps = cap.get(cv2.CAP_PROP_FPS)
                         
                         if total_frames > 0 and len(predictions) > 0:
-                            # Interpolate predictions to match total frames
                             risk_array = np.interp(
                                 np.linspace(0, len(predictions)-1, total_frames),
                                 np.arange(len(predictions)),
                                 predictions
                             )
                             
-                            # Setup Plotly Chart
                             fig = go.Figure()
-                            # Start with empty data
                             fig.add_trace(go.Scatter(x=[], y=[], mode='lines', name='Risk', line=dict(color='red', width=2)))
                             fig.update_layout(
                                 xaxis=dict(range=[0, total_frames], title="Frame", gridcolor='#333333'),
@@ -310,23 +292,18 @@ if video_file_path:
                                 if not ret:
                                     break
                                 
-                                # Convert BGR to RGB for Streamlit
                                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                                 
-                                # Update Video (Left Column)
                                 video_placeholder.image(frame, channels="RGB", use_container_width=True)
                                 
-                                # Update Data
                                 current_risk = risk_array[frame_idx]
                                 x_data.append(frame_idx)
                                 y_data.append(current_risk)
                                 
-                                # Update Chart (Right Column) - Update every N frames
                                 if frame_idx % 2 == 0:
                                     fig.data[0].x = x_data
                                     fig.data[0].y = y_data
                                     
-                                    # Highlight risk text
                                     color = "green"
                                     if current_risk > 0.8: color = "red"
                                     elif current_risk > 0.5: color = "orange"
@@ -336,10 +313,6 @@ if video_file_path:
                                 
                                 frame_idx += 1
                                 
-                                # Control Framerate
-                                # Ensure at least 5 seconds duration or ~10 FPS (0.1s delay)
-                                # If video is short, it will play slower to meet 5s requirement.
-                                # If video is long, it will play at ~10 FPS.
                                 delay = max(0.1, 5.0 / total_frames) if total_frames > 0 else 0.1
                                 time.sleep(delay) 
                                 
@@ -354,7 +327,6 @@ if video_file_path:
                         else:
                             st.error(f"Error from backend: {error_msg}")
                 elif response.status_code == 422:
-                     # Handle detailed validation error from FastAPI
                      try:
                          data = response.json()
                          err_detail = data.get('detail', "Invalid Video Content")
@@ -365,7 +337,6 @@ if video_file_path:
                      status_text.empty()
                      st.warning(f"⚠️ **Inappropriate Content Detected**\n\n{err_detail}")
                 else:
-                    # Generic error handler (500, etc)
                     progress_bar.empty()
                     status_text.empty()
                     try:
@@ -373,7 +344,6 @@ if video_file_path:
                     except:
                         err_detail = str(response.status_code)
                     
-                    # Handle case where inappropriate content comes through this path
                     if "Inappropriate content" in str(err_detail) or "422" in str(err_detail):
                          st.warning("⚠️ **Upload Dashcam Video**\n\nNo traffic content found in your video (e.g., no cars, roads, or signs found).")
                     else:

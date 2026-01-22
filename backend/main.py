@@ -6,7 +6,6 @@ import shutil
 import uuid
 from contextlib import asynccontextmanager
 
-# Add project root to sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.models.vision_models.cnn_extractor import CNNExtractor
@@ -14,19 +13,16 @@ from src.models.temporal_model.LSTM_model import RiskLSTM
 from src.utils.scene_validator import DashcamValidator
 from backend.inference import predict_risk
 
-# Global variables to hold models
 models = {}
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Load models
     PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     
     print("Loading CNN Extractor...")
     cnn_weights = os.path.join(PROJECT_ROOT, "models", "accident_detection_weighted_cnn_model.pth")
     if not os.path.exists(cnn_weights):
-        # Fallback as per main.py
         cnn_weights = os.path.join(PROJECT_ROOT, "models", "accident_detection_cnn_model.pth")
     
     if os.path.exists(cnn_weights):
@@ -34,8 +30,7 @@ async def lifespan(app: FastAPI):
         models["cnn"].eval()
     else:
         print(f"WARNING: CNN weights not found at {cnn_weights}")
-        # Depending on requirements, might want to raise error or initialize without weights
-        models["cnn"] = CNNExtractor(None).to(device) # Assuming it handles None or we might need to fix this if CNNExtractor requires path
+        models["cnn"] = CNNExtractor(None).to(device)
         models["cnn"].eval()
 
     print("Loading LSTM Model...")
@@ -52,7 +47,6 @@ async def lifespan(app: FastAPI):
         models["lstm"].eval()
     else:
         print(f"WARNING: LSTM weights not found at {lstm_weights}")
-        # Proceed with random weights (or handle error)
         models["lstm"].eval()
         
     print("Loading Scene Validator...")
@@ -60,7 +54,6 @@ async def lifespan(app: FastAPI):
     
     yield
     
-    # Shutdown: Clean up resources if needed
     models.clear()
 
 app = FastAPI(lifespan=lifespan)
@@ -70,7 +63,6 @@ async def predict(file: UploadFile = File(...)):
     if not file.filename.endswith(('.mp4', '.avi', '.mov')):
         raise HTTPException(status_code=400, detail="Invalid file type. Please upload a video file.")
 
-    # Save uploaded file to a temp location
     run_id = str(uuid.uuid4())
     PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     temp_dir = os.path.join(PROJECT_ROOT, "temp_uploads")
@@ -85,8 +77,6 @@ async def predict(file: UploadFile = File(...)):
         if "cnn" not in models or "lstm" not in models or "validator" not in models:
             raise HTTPException(status_code=500, detail="Models not loaded")
             
-        # 1. Validate Scene Context
-        # We do this before streaming to fail fast if invalid
         is_dashcam, message = models["validator"].is_dashcam_footage(temp_video_path)
         if not is_dashcam:
              if os.path.exists(temp_video_path):
@@ -96,7 +86,6 @@ async def predict(file: UploadFile = File(...)):
                 detail=f"Inappropriate content detected: {message}. Please upload a valid dashcam video."
             )
 
-        # 2. Predict Risk with Progress Streaming
         from fastapi.responses import StreamingResponse
         from starlette.background import BackgroundTask
         import json
@@ -106,18 +95,14 @@ async def predict(file: UploadFile = File(...)):
                 os.remove(temp_video_path)
 
         def iter_inference():
-            # Initial Yield
             yield json.dumps({"status": "Context verified. Starting analysis...", "progress": 0}) + "\n"
             
-            # Iterate through the generator
             for update in predict_risk(temp_video_path, models["cnn"], models["lstm"], device):
                 yield json.dumps(update) + "\n"
 
         return StreamingResponse(iter_inference(), media_type="application/x-ndjson", background=BackgroundTask(cleanup))
 
     except Exception as e:
-        # If headers not sent, we can raise exception. If streaming started, it's too late (client will get cut off).
-        # Since we are before StreamingResponse return, we can catch standard errors.
         if os.path.exists(temp_video_path):
             os.remove(temp_video_path)
         raise HTTPException(status_code=500, detail=str(e))

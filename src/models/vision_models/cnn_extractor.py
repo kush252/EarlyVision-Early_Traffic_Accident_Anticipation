@@ -29,9 +29,6 @@ class CNNExtractor(nn.Module):
             else:
                 print(f"Warning: Weights path {weights_path} not found. Using random initialization.")
         
-        # Replace the classifier with Flatten only to get 512-dim features
-        # The new model's fc is Sequential(Flatten, Dropout, Linear)
-        # We replace it to only flatten the GAP output: (B, 512, 1, 1) -> (B, 512)
         self.base_model.fc = nn.Sequential(
             nn.Flatten()
         )
@@ -54,5 +51,5 @@ if __name__ == "__main__":
     features = extractor(dummy_input)
     
     print(f"Input shape: {dummy_input.shape}")
-    print(f"Output features shape: {features.shape}")  # Should be (1, 512)
+    print(f"Output features shape: {features.shape}")
     print("Extraction successful.")

@@ -38,7 +38,6 @@ def fit_model(train_loader, val_loader, model, num_epochs=10, checkpoint_path=No
         'val_loss': [], 'val_acc': []
     }
 
-    # --- Resume Logic ---
     if checkpoint_path and os.path.exists(checkpoint_path):
         print(f"Found checkpoint at '{checkpoint_path}'. Loading...")
         checkpoint = torch.load(checkpoint_path, map_location=device)
@@ -52,7 +51,6 @@ def fit_model(train_loader, val_loader, model, num_epochs=10, checkpoint_path=No
     else:
         print(f"No valid checkpoint found. Starting training from scratch on {device}.")
 
-    # --- Training Loop ---
     for epoch in range(start_epoch, num_epochs):
         model.train()
         running_loss = 0.0
@@ -84,7 +82,6 @@ def fit_model(train_loader, val_loader, model, num_epochs=10, checkpoint_path=No
         history['train_loss'].append(avg_train_loss)
         history['train_acc'].append(train_acc)
 
-        # --- Validation Phase ---
         model.eval()
         val_loss = 0.0
         correct_val = 0
@@ -113,7 +110,6 @@ def fit_model(train_loader, val_loader, model, num_epochs=10, checkpoint_path=No
               f"Train Loss: {avg_train_loss:.4f} | Train Acc: {train_acc:.2f}% | "
               f"Val Loss: {avg_val_loss:.4f} | Val Acc: {val_acc:.2f}%")
 
-        # --- Save Checkpoint per Epoch ---
         if checkpoint_path:
             checkpoint = {
                 'epoch': epoch + 1,
@@ -172,7 +168,6 @@ if __name__ == "__main__":
     print(f"Using device: {device}")
     model = SimpleCNN(num_classes=2).to(device)
 
-    # Define paths
     FINAL_MODEL_PATH = os.path.join("models", "accident_detection_cnn_model.pth")
     CHECKPOINT_PATH = os.path.join("checkpoint_logs", "training_checkpoint.pth")
     
@@ -181,7 +176,6 @@ if __name__ == "__main__":
         start_time = time.time()
         print("\nStarting training loop...")
         
-        # Pass checkpoint path for resume capability
         history = fit_model(
             train_loader, 
             val_loader, 
@@ -203,7 +197,6 @@ if __name__ == "__main__":
             json.dump(history, f, indent=4)
         print("Training history saved to training_history.txt")
 
-        # Save Final Pure Weights
         torch.save(model.state_dict(), FINAL_MODEL_PATH)
         print(f"Final Model weights saved to {FINAL_MODEL_PATH}")
 

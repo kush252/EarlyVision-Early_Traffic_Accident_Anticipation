@@ -22,11 +22,9 @@ from src.models.temporal_model.LSTM_model import RiskLSTM
 
 
 def get_accident_risk_prediction(video_pth):
-    # Define Root and Output Path consistently
     ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
     output_pth = os.path.join(ROOT_DIR, "sample data", "frames")
 
-    # Cleanup previous frames to avoid mixing videos
     if os.path.exists(output_pth):
         for f in os.listdir(output_pth):
             fp = os.path.join(output_pth, f)
@@ -65,7 +63,6 @@ def get_accident_risk_prediction(video_pth):
                 feature_list.append(features_np)
                 
     if len(feature_list) >= 15:
-        # Set frames_per_video to current length to treat it as one continuous sequence
         sequences = frames_to_sequence(feature_list, 10, 5, frames_per_video=len(feature_list))
     else:
         print("Video too short for sequence generation (needs >14 frames)")

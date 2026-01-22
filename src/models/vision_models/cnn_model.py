@@ -20,7 +20,7 @@ class SimpleCNN(nn.Module):
     def _conv_block(self, in_c, out_c):
         return nn.Sequential(
             nn.Conv2d(in_c, out_c, kernel_size=3, padding=1),
-            nn.BatchNorm2d(out_c),  # Critical for training deep nets
+            nn.BatchNorm2d(out_c),
             nn.ReLU(),
             nn.MaxPool2d(2, 2)
         )

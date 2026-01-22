@@ -16,7 +16,6 @@ from torch.utils.data import DataLoader
 CRASH_IMG_FOLDER=r"e:\Kush\2nd_year\projects\accident_pred\dataset\frames\Crash-1500"
 NORMAL_IMG_FOLDER=r"e:\Kush\2nd_year\projects\accident_pred\dataset\frames\Normal-3000"
 
-# filename = f"video001_frame01.jpg"
 def image_resize_toTensor(IMG_FOLDER,filename):
     image=cv2.imread(os.path.join(IMG_FOLDER, filename))
     img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)

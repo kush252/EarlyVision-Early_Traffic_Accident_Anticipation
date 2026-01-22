@@ -30,11 +30,8 @@ class RiskLSTM(nn.Module):
 
         lstm_out, (h_n, c_n) = self.lstm(x)
 
-        # h_n shape:
-        # (num_layers * directions, batch, hidden_dim)
 
         if self.lstm.bidirectional:
-            # last layer forward & backward
             last_hidden = torch.cat((h_n[-2], h_n[-1]), dim=1)
         else:
             last_hidden = h_n[-1]

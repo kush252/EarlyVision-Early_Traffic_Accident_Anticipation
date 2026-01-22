@@ -89,7 +89,6 @@ def fit_model(train_loader, val_loader, model, num_epochs=10, checkpoint_path=No
         correct_val = 0
         total_val = 0
         
-        # Reset confusion matrix for this epoch
         epoch_cm = {'TN': 0, 'FN': 0, 'TP': 0, 'FP': 0}
 
         with torch.no_grad():
@@ -115,7 +114,6 @@ def fit_model(train_loader, val_loader, model, num_epochs=10, checkpoint_path=No
                     elif p == 0 and l == 1:
                         epoch_cm['FN'] += 1
         
-        # Save the specific confusion matrix for this epoch
         history['confusion_matrix'] = epoch_cm
 
         avg_val_loss = val_loss / len(val_loader)
@@ -198,7 +196,6 @@ if __name__ == "__main__":
 
     model = SimpleCNN(num_classes=2).to(device)
 
-    # Define paths relative to project root
     PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     MODELS_DIR = os.path.join(PROJECT_ROOT, "models")
     LOGS_DIR = os.path.join(PROJECT_ROOT, "checkpoint_logs")

@@ -106,7 +106,6 @@ if __name__ == "__main__":
     start_time_all = time.time()
     print("--- Running Quick Weighted Pipeline Test (Crash Only) ---")
     
-    # 1. Load Data
     print("Loading filenames...")
     try:
         crash_filenames = get_image_filenames(CRASH_IMG_FOLDER)
@@ -125,28 +124,23 @@ if __name__ == "__main__":
     print("Pairing images and labels...")
     all_crash_images = get_images_labelled(crash_filenames, crash_labels_1d)
     
-    # 2. Select Subset with FORCED Balance (to test Recall/F1)
-    # The Crash folder is mostly normal frames. We need to hunt for the accident frames.
     accident_frames = [x for x in all_crash_images if x[1] == 1]
     normal_frames = [x for x in all_crash_images if x[1] == 0]
     
     print(f"Total available Accident frames in Crash Folder: {len(accident_frames)}")
     print(f"Total available Normal frames in Crash Folder: {len(normal_frames)}")
     
-    # Take up to 100 accident frames (or as many as exist)
     n_accident = min(len(accident_frames), NUM_TEST_IMAGES // 2)
     n_normal = NUM_TEST_IMAGES - n_accident
     
     subset_data = accident_frames[:n_accident] + normal_frames[:n_normal]
     random.shuffle(subset_data)
     
-    # Count classes in subset for weighting
     count_1 = sum(1 for _, lbl in subset_data if lbl == 1)
     count_0 = len(subset_data) - count_1
     
     print(f"Subset Statistics: Normal={count_0}, Crash={count_1}")
 
-    # 3. Calculate Class Weights
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     if count_1 > 0 and count_0 > 0:
@@ -159,7 +153,6 @@ if __name__ == "__main__":
         class_weights = None
         print("Warning: One class missing in subset, weights disabled.")
 
-    # 4. Split and Create DataLoaders
     split_idx = int(len(subset_data) * 0.8)
     
     train_data = subset_data[:split_idx]
@@ -174,7 +167,6 @@ if __name__ == "__main__":
     train_loader = DataLoader(ds_train, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS)
     val_loader = DataLoader(ds_val, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS)
     
-    # 6. Initialize Model & Train
     print(f"Using device: {device}")
     model = SimpleCNN(num_classes=2).to(device)
 
@@ -192,7 +184,7 @@ if __name__ == "__main__":
         torch.save(model.state_dict(), "test_weighted_model.pth")
         print("Model save test passed.")
         
-        time.sleep(1) # Ensure file handle is released
+        time.sleep(1)
         if os.path.exists("test_weighted_model.pth"):
              os.remove("test_weighted_model.pth")
              print("Cleaned up test artifact.")

@@ -1,7 +1,6 @@
 import cv2
 import os
 
-# === CONFIGURATION ===
 VIDEO_FOLDER = r"e:\Kush\2nd_year\projects\accident_pred\dataset\videos\Crash-1500"
 OUTPUT_FOLDER = r"e:\Kush\2nd_year\projects\accident_pred\dataset\frames\Crash-1500"
 

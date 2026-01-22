@@ -14,19 +14,19 @@ The system follows a modular architecture consisting of the following key compon
 
 ### 1. Scene Validation Module
 Before any risk analysis, the system first verifies that the input video contains valid driving footage.
-- **Tools**: EfficientNet, YOLOv8 (Object Detection).
-- **Function**: Checks for road textures, lane markings, and vehicle presence. If a video is irrelevant (e.g., indoor footage), it is rejected to save computational resources and maintain accuracy.
+- **Tools**: Pre-trained MobileNetV2 (ImageNet weights).
+- **Function**: Samples frames from the video and checks for the presence of traffic-related classes (e.g., vehicles, roads, traffic signs) using a pre-trained classifier. If the footage/scene is irrelevant, it is rejected to ensure reliable predictions.
 
 ### 2. Deep Learning Pipeline (Spatial-Temporal)
 The core intelligence is split into two specialized stages:
 - **Spatial Feature Extractor (CNN)**:
-  - Uses a **MobileNetV2** backbone pre-trained on ImageNet.
-  - Fine-tuned on crash/non-crash datasets to identify accident-relevant visual cues (e.g., sudden braking, swerving cars) in individual frames.
-  - Extracts a 512-dimensional feature vector from each frame.
+  - Uses a **Custom CNN Architecture** (`SimpleCNN`) designed for accident detection.
+  - Trained from scratch on crash/non-crash datasets to learn accident-relevant visual cues.
+  - Extracts a flattened 512-dimensional feature vector from each frame.
 - **Temporal Sequence Modeler (LSTM)**:
-  - Taking the sequence of features from the CNN, the **Long Short-Term Memory (LSTM)** network analyzes the progression of events over time.
+  - Taking the sequence of 512-dim features from the CNN, the **Long Short-Term Memory (LSTM)** network analyzes the progression of events over time.
   - It maintains a memory of past frames to detect developing patterns that precede a crash.
-  - Outputs a probability score (0-1) for every video segment.
+  - Outputs a risk score (converted to probability) for the video sequence.
 
 ### 3. Application Interface
 - **Backend**: A **FastAPI** server that exposes the inference pipeline. It manages video processing, model loading, and streaming of real-time progress updates.

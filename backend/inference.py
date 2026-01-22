@@ -26,11 +26,13 @@ def predict_risk(video_path, cnn_extractor, lstm_model, device):
 
     try:
         # Convert video to frames
-        print(f"[{run_id}] Converting video to frames...")
+        yield {"status": "Preprocessing video...", "progress": 5}
+        # print(f"[{run_id}] Converting video to frames...") 
         video_to_frames_converter(video_path, temp_frame_dir)
+        yield {"status": "Extracting features...", "progress": 15}
 
         # Extract features
-        print(f"[{run_id}] Extracting features...")
+        # print(f"[{run_id}] Extracting features...")
         feature_list = []
         frame_files = [f for f in os.listdir(temp_frame_dir) if f.endswith('.jpg')]
         
@@ -38,29 +40,38 @@ def predict_risk(video_path, cnn_extractor, lstm_model, device):
         frame_files.sort(key=lambda f: int(''.join(filter(str.isdigit, f)) or -1))
 
         if not frame_files:
-            return {"error": "No frames could be extracted from the video"}
+            yield {"error": "No frames could be extracted from the video"}
+            return
 
+        total_frames = len(frame_files)
         with torch.no_grad():
-            for frame_file in frame_files:
+            for i, frame_file in enumerate(frame_files):
                 img_tensor = image_resize_toTensor(temp_frame_dir, frame_file)
                 img_tensor = img_tensor.unsqueeze(0).to(device)
             
                 features = cnn_extractor(img_tensor)
                 features_np = features.cpu().numpy().flatten()
                 feature_list.append(features_np)
+                
+                # Update progress every 5 frames or so to reduce traffic
+                if i % 5 == 0 or i == total_frames - 1:
+                    # Scale progress from 15 to 85
+                    current_progress = 15 + int((i / total_frames) * 70)
+                    yield {"status": f"Analyzing frame {i+1}/{total_frames}...", "progress": current_progress}
 
         # process sequences
+        yield {"status": "Generating sequences...", "progress": 90}
         if len(feature_list) >= 15:
             # Using parameters from main.py: win_len=10, hop_len=5
             sequences = frames_to_sequence(feature_list, 10, 5, frames_per_video=len(feature_list))
         else:
-             # Fallback or specific handling for short videos if needed, currently returning empty or handling logic
-             # main.py says "Video too short", returns empty sequences
+             # Fallback
              sequences = []
 
         prediction_list = []
         if len(sequences) > 0:
-            print(f"[{run_id}] predicting with LSTM...")
+            # print(f"[{run_id}] predicting with LSTM...")
+            yield {"status": "Predicting risks...", "progress": 95}
             sequences_np = np.array(sequences, dtype=np.float32)
             sequences_tensor = torch.tensor(sequences_np).to(device)
             
@@ -69,11 +80,11 @@ def predict_risk(video_path, cnn_extractor, lstm_model, device):
                 probs = torch.sigmoid(logits)
                 prediction_list = probs.cpu().numpy().flatten().tolist()
         
-        return {"predictions": prediction_list}
+        yield {"status": "Complete", "progress": 100, "predictions": prediction_list}
 
     except Exception as e:
         print(f"Error processing video {run_id}: {e}")
-        return {"error": str(e)}
+        yield {"error": str(e)}
     finally:
         # Cleanup
         if os.path.exists(temp_frame_dir):

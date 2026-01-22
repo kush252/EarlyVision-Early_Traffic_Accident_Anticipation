@@ -1,4 +1,5 @@
 import streamlit as st
+import json
 import streamlit.components.v1 as components
 import requests
 import os
@@ -19,7 +20,24 @@ st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
         
-        /* Global Font and Color */
+        /* --- Animations --- */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        @keyframes pulseRed {
+            0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+        }
+
+        /* --- Global Font and Color --- */
         html, body, [class*="css"]  {
             font-family: 'Inter', sans-serif;
             color: #ffffff;
@@ -29,13 +47,14 @@ st.markdown("""
             font-family: 'Inter', sans-serif;
             font-weight: 600;
             color: #ffffff;
+            animation: fadeIn 1.2s ease-out;
         }
 
-        /* Black Theme with Subtle White Blur */
+        /* --- Black Theme with Subtle White Blur --- */
         .stApp {
             background-color: #000000;
             background-image: 
-                radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 60%);
+                radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.08) 0%, transparent 70%);
             background-attachment: fixed;
             background-size: cover;
         }
@@ -45,9 +64,14 @@ st.markdown("""
             color: #ffffff !important;
         }
         
-        /* Only Title (h1) Red */
+        /* Title (h1) Styling */
         h1 {
-            color: #ff0000 !important;
+            background: linear-gradient(90deg, #ffffff, #ff4444);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: #ff0000 !important; /* Fallback */
+            text-shadow: 0px 0px 15px rgba(255, 0, 0, 0.2);
+            margin-bottom: 1rem;
         }
         
         /* Other headers White */
@@ -55,33 +79,79 @@ st.markdown("""
             color: #ffffff !important;
         }
 
-        /* Sidebar Styling */
+        /* --- Sidebar Styling --- */
         [data-testid="stSidebar"] {
-            background-color: rgba(10, 10, 10, 0.8);
+            background-color: rgba(10, 10, 10, 0.85);
             backdrop-filter: blur(20px);
-            border-right: 1px solid rgba(255, 50, 50, 0.2);
+            border-right: 1px solid rgba(255, 50, 50, 0.15);
+            transition: transform 0.3s ease;
         }
         
-        /* Primary Button (Red) */
+        /* --- Smooth Content Entry --- */
+        div.block-container {
+            animation: slideUp 0.8s ease-out;
+        }
+
+        /* --- Primary Button (Red) Interactions --- */
         div.stButton > button:first-child {
             background-color: #e60000;
             color: white;
-            border: none;
-            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
             font-weight: 600;
-            transition: all 0.3s ease;
+            padding: 0.6rem 1.2rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
         }
+        
         div.stButton > button:first-child:hover {
             background-color: #ff3333;
-            box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
-            transform: translateY(-2px);
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+            transform: translateY(-2px) scale(1.01);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+        
+        div.stButton > button:first-child:active {
+            transform: translateY(0);
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.3);
         }
 
-        /* Titles/Headers Gradient */
-        h1 {
-            background: linear-gradient(90deg, #ffffff, #ff4444);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+        /* --- File Uploader Styling --- */
+        [data-testid="stFileUploader"] {
+            border: 1px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+        [data-testid="stFileUploader"]:hover {
+            border-color: #ff4444;
+            background-color: rgba(255, 0, 0, 0.05);
+        }
+
+        /* --- Progress Bar Glow --- */
+        .stProgress > div > div > div > div {
+            background-image: linear-gradient(90deg, #e60000, #ff4444);
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
+            transition: width 0.5s ease-in-out;
+        }
+        
+        /* --- Card/Image Hover Effects --- */
+        [data-testid="stImage"] img {
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+            transition: transform 0.4s ease, box-shadow 0.4s ease;
+        }
+        [data-testid="stImage"] img:hover {
+            transform: scale(1.02);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.8);
+        }
+        
+        /* --- Warnings/Success Messages --- */
+        .stAlert {
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            animation: fadeIn 0.5s ease;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -131,21 +201,52 @@ if video_file_path:
     # Analysis Button Section
     st.subheader("Analysis")
     if st.button("Analyze Risk", type="primary", use_container_width=True):
-        with st.spinner("Processing video (this may take a moment)..."):
-            try:
-                # Send to backend
-                # Re-open file for sending
-                files = {'file': open(video_file_path, 'rb')}
-                response = requests.post(API_URL, files=files)
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        try:
+            # Send to backend
+            # Re-open file for sending
+            files = {'file': open(video_file_path, 'rb')}
+            
+            # Use stream=True to receive progress updates
+            with requests.post(API_URL, files=files, stream=True) as response:
                 
                 if response.status_code == 200:
-                    data = response.json()
-                    if "predictions" in data:
-                        predictions = data["predictions"]
-                        st.success("Analysis Complete!")
+                    predictions = []
+                    error_msg = None
+                    
+                    for line in response.iter_lines():
+                        if line:
+                            try:
+                                update = json.loads(line)
+                                if "progress" in update:
+                                    progress_bar.progress(min(update["progress"], 100))
+                                if "status" in update:
+                                    status_text.markdown(f"**{update['status']}**")
+                                if "predictions" in update:
+                                    predictions = update["predictions"]
+                                if "error" in update:
+                                    error_msg = update["error"]
+                            except json.JSONDecodeError:
+                                continue
+                    
+                    # Check for results
+                    if error_msg:
+                        progress_bar.empty()
+                        status_text.empty()
+                        if "Inappropriate content" in error_msg or "Validation Failed" in error_msg:
+                            st.warning(f"⚠️ **Video Content Check Failed**\n\n{error_msg}\n\nPlease verify you used a dashcam video as per instructions.")
+                        else:
+                            st.error(f"Error from backend: {error_msg}")
+                    elif predictions:
+                        progress_bar.progress(100)
+                        status_text.success("Analysis Complete!")
+                        time.sleep(0.5) # Show 100% briefly
+                        progress_bar.empty()
+                        status_text.empty()
                         
                         # Auto-scroll to results
-                        # We place the anchor slightly lower and use JS to wait a bit for rendering
                         st.markdown('<div id="results_section"></div>', unsafe_allow_html=True)
                         components.html(
                             """
@@ -247,8 +348,36 @@ if video_file_path:
                             st.warning("Not enough data to generated visualization.")
                             
                     elif "error" in data:
-                        st.error(f"Error from backend: {data['error']}")
+                        error_msg = data['error']
+                        if "Inappropriate content" in error_msg or "Validation Failed" in error_msg:
+                            st.warning(f"⚠️ **Video Content Check Failed**\n\n{error_msg}\n\nPlease verify you used a dashcam video as per instructions.")
+                        else:
+                            st.error(f"Error from backend: {error_msg}")
+                elif response.status_code == 422:
+                     # Handle detailed validation error from FastAPI
+                     try:
+                         data = response.json()
+                         err_detail = data.get('detail', "Invalid Video Content")
+                     except:
+                         err_detail = "Invalid Video Content"
+                         
+                     progress_bar.empty()
+                     status_text.empty()
+                     st.warning(f"⚠️ **Inappropriate Content Detected**\n\n{err_detail}")
                 else:
-                    st.error(f"Failed to get response: {response.status_code}")
-            except Exception as e:
-                st.error(f"An error occurred: {str(e)}")
+                    # Generic error handler (500, etc)
+                    progress_bar.empty()
+                    status_text.empty()
+                    try:
+                        err_detail = response.json().get('detail', str(response.status_code))
+                    except:
+                        err_detail = str(response.status_code)
+                    
+                    # Handle case where inappropriate content comes through this path
+                    if "Inappropriate content" in str(err_detail) or "422" in str(err_detail):
+                         st.warning("⚠️ **Upload Dashcam Video**\n\nNo traffic content found in your video (e.g., no cars, roads, or signs found).")
+                    else:
+                         st.error(f"Failed to get response: {err_detail}")
+                    
+        except Exception as e:
+            st.error(f"An error occurred: {str(e)}")

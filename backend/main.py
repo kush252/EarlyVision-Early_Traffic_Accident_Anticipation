@@ -82,30 +82,45 @@ async def predict(file: UploadFile = File(...)):
         with open(temp_video_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
             
-        # Run inference
-        # Run inference
         if "cnn" not in models or "lstm" not in models or "validator" not in models:
             raise HTTPException(status_code=500, detail="Models not loaded")
             
         # 1. Validate Scene Context
+        # We do this before streaming to fail fast if invalid
         is_dashcam, message = models["validator"].is_dashcam_footage(temp_video_path)
         if not is_dashcam:
-             return {"error": f"Validation Failed: {message}"}
-             
-        # 2. Predict Risk
-        result = predict_risk(temp_video_path, models["cnn"], models["lstm"], device)
-        
-        if "error" in result:
-             raise HTTPException(status_code=500, detail=result["error"])
-             
-        return result
+             if os.path.exists(temp_video_path):
+                os.remove(temp_video_path)
+             raise HTTPException(
+                status_code=422, 
+                detail=f"Inappropriate content detected: {message}. Please upload a valid dashcam video."
+            )
+
+        # 2. Predict Risk with Progress Streaming
+        from fastapi.responses import StreamingResponse
+        from starlette.background import BackgroundTask
+        import json
+
+        def cleanup():
+            if os.path.exists(temp_video_path):
+                os.remove(temp_video_path)
+
+        def iter_inference():
+            # Initial Yield
+            yield json.dumps({"status": "Context verified. Starting analysis...", "progress": 0}) + "\n"
+            
+            # Iterate through the generator
+            for update in predict_risk(temp_video_path, models["cnn"], models["lstm"], device):
+                yield json.dumps(update) + "\n"
+
+        return StreamingResponse(iter_inference(), media_type="application/x-ndjson", background=BackgroundTask(cleanup))
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        # Clean up video file
+        # If headers not sent, we can raise exception. If streaming started, it's too late (client will get cut off).
+        # Since we are before StreamingResponse return, we can catch standard errors.
         if os.path.exists(temp_video_path):
             os.remove(temp_video_path)
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

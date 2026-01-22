@@ -9,12 +9,11 @@ class DashcamValidator:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Initializing Scene Validator on {self.device}...")
         
-        # Load a lightweight pre-trained model (MobileNetV2 is fast and good enough)
-        # We use the default weights (IMAGENET1K_V1)
+ 
         self.model = models.mobilenet_v2(weights=models.MobileNet_V2_Weights.IMAGENET1K_V1).to(self.device)
         self.model.eval()
         
-        # Define standard transformation
+
         self.transform = transforms.Compose([
             transforms.Resize(256),
             transforms.CenterCrop(224),
@@ -22,37 +21,35 @@ class DashcamValidator:
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ])
         
-        # Set of ImageNet class indices relevant to roads/traffic
-        # These correspond to various vehicles, road structures, etc.
         self.valid_indices = {
-            407, # ambulance
-            436, # beach wagon
-            444, # bicycle
-            468, # cab
-            511, # convertible
-            569, # garbage truck
-            609, # jeep
-            627, # limousine
-            654, # minibus
-            656, # minivan
-            661, # Model T
-            665, # moped
-            670, # motor scooter
-            671, # mountain bike
-            675, # moving van
-            705, # passenger car
-            717, # pickup
-            734, # police van
-            751, # racer
-            757, # recreational vehicle
-            779, # school bus
-            817, # sports car
-            829, # streetcar
-            864, # tow truck
-            867, # trailer truck
-            913, # traffic light
-            914, # street sign
-            919, # street
+            407, 
+            436, 
+            444, 
+            468, 
+            511, 
+            569, 
+            609, 
+            627, 
+            654, 
+            656, 
+            661, 
+            665, 
+            670, 
+            671, 
+            675,
+            705, 
+            717, 
+            734, 
+            751, 
+            757, 
+            779, 
+            817, 
+            829, 
+            864, 
+            867, 
+            913, 
+            914, 
+            919, 
         }
 
     def is_dashcam_footage(self, video_path, num_checks=3):
@@ -68,9 +65,9 @@ class DashcamValidator:
             return False, "Video too short"
 
         frame_points = [
-            int(total_frames * 0.2), # 20% mark
-            int(total_frames * 0.5), # 50% mark
-            int(total_frames * 0.8)  # 80% mark
+            int(total_frames * 0.2),    
+            int(total_frames * 0.5), 
+            int(total_frames * 0.8) 
         ]
         
         valid_frames = 0
@@ -82,22 +79,19 @@ class DashcamValidator:
                 if not ret:
                     continue
                 
-                # Convert BGR to RGB
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 pil_img = Image.fromarray(frame_rgb)
                 
-                # Preprocess
                 input_tensor = self.transform(pil_img).unsqueeze(0).to(self.device)
                 
                 with torch.no_grad():
                     output = self.model(input_tensor)
                     
-                # Get top 5 predictions for this frame
+                
                 probs, indices = torch.topk(output, 5)
                 indices = indices.cpu().numpy()[0]
                 
-                # Check if any top prediction is in our valid set
-                # We relax the condition: if ANY of the top 5 is a vehicle/road item, we count it.
+                
                 if any(idx in self.valid_indices for idx in indices):
                     valid_frames += 1
                     
@@ -107,9 +101,7 @@ class DashcamValidator:
         finally:
             cap.release()
             
-        # Decision logic: strictness can be adjusted. 
-        # If at least 1 checked frame clearly looks like a road scene, we verify it.
-        # This prevents rejecting a video just because one frame was blurry or empty road.
+        
         if valid_frames >= 1:
             return True, "Valid Dashcam Footage"
         else:

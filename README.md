@@ -12,12 +12,7 @@ To ensure robustness, the solution is designed with a decoupled architecture: a 
 
 The system follows a modular architecture consisting of the following key components:
 
-### 1. Scene Validation Module
-Before any risk analysis, the system first verifies that the input video contains valid driving footage.
-- **Tools**: Pre-trained MobileNetV2 (ImageNet weights).
-- **Function**: Samples frames from the video and checks for the presence of traffic-related classes (e.g., vehicles, roads, traffic signs) using a pre-trained classifier. If the footage/scene is irrelevant, it is rejected to ensure reliable predictions.
-
-### 2. Deep Learning Pipeline (Spatial-Temporal)
+### 1. Deep Learning Pipeline (Spatial-Temporal)
 The core intelligence is split into two specialized stages:
 - **Spatial Feature Extractor (CNN)**:
   - Uses a **Custom CNN Architecture** (`SimpleCNN`) designed for accident detection.
@@ -28,9 +23,14 @@ The core intelligence is split into two specialized stages:
   - It maintains a memory of past frames to detect developing patterns that precede a crash.
   - Outputs a risk score (converted to probability) for the video sequence.
 
-### 3. Application Interface
+### 2. Application Interface
 - **Backend**: A **FastAPI** server that exposes the inference pipeline. It manages video processing, model loading, and streaming of real-time progress updates.
 - **Frontend**: A **Streamlit** dashboard providing a user-friendly interface. It allows users to upload videos or select samples, visualizing the accident risk curve synchronized with video playback.
+
+### 3. Scene Validation Module
+Before any risk analysis, the system first verifies that the input video contains valid driving footage.
+- **Tools**: Pre-trained MobileNetV2 (ImageNet weights).
+- **Function**: Samples frames from the video and checks for the presence of traffic-related classes (e.g., vehicles, roads, traffic signs) using a pre-trained classifier. If the footage/scene is irrelevant, it is rejected to ensure reliable predictions.
 
 ## Directory Structure
 

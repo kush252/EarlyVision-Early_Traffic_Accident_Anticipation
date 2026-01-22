@@ -34,6 +34,7 @@ The core intelligence is split into two specialized stages:
 
 ## Directory Structure
 
+```
 root/
 ├── backend/
 │   ├── main.py                # FastAPI app entry point (endpoints)
@@ -54,6 +55,7 @@ root/
 │   └── weighted_training...   # Variations for different loss strategies
 ├── models/                    # Saved PyTorch model weights (.pth files)
 └── requirements.txt           # Python dependencies
+```
 
 ## Setup and Usage
 

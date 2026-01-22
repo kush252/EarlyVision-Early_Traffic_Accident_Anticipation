@@ -38,8 +38,7 @@ The core intelligence is split into two specialized stages:
 root/
 ├── backend/
 │   ├── main.py                # FastAPI app entry point (endpoints)
-│   ├── inference.py           # Core logic connecting models & video processing
-│   └── models.py              # Pydantic data schemas for API communication
+│   └── inference.py           # Core logic connecting models & video processing
 ├── frontend/
 │   └── app.py                 # Streamlit dashboard application
 ├── src/
@@ -51,8 +50,9 @@ root/
 │       ├── scene_validator.py # Logic for checking video content relevance
 │       └── lstm_utils.py      # Helpers for sequence generation
 ├── pipelines/
-│   ├── training_pipeline.py   # Script for training the CNN/LSTM components
-│   └── weighted_training...   # Variations for different loss strategies
+│   ├── cnn_modeltrain_pipeline.py          # Script for training CNN
+│   ├── cnn_weighted_modeltrain_pipeline.py # Training with weighted loss
+│   └── lstm_training_pipeline.py           # Script for training LSTM
 ├── models/                    # Saved PyTorch model weights (.pth files)
 └── requirements.txt           # Python dependencies
 ```

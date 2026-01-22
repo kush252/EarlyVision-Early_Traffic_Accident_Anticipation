@@ -32,7 +32,7 @@ NUM_LAYERS = 2
 BIDIRECTIONAL = False
 BATCH_SIZE = 32
 LEARNING_RATE = 1e-3
-NUM_EPOCHS = 5
+NUM_EPOCHS = 50
 
 
 LSTM_MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "risk_lstm_model.pth")
@@ -269,6 +269,6 @@ if __name__ == "__main__" or True:
 
     sequences=frames_to_sequence(feature_list,L,K)
     labels=read_crash_labels(crash_labels_path)
-    y=framelabel_to_sequencelabel(labels[:50],L,K)
+    y=framelabel_to_sequencelabel(labels,L,K)
  
     trained_model, training_history = train_lstm(sequences,y)

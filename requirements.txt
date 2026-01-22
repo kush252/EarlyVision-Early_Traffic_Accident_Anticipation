@@ -4,3 +4,9 @@ torch
 torchvision
 numpy
 matplotlib
+fastapi
+uvicorn
+python-multipart
+streamlit
+requests
+plotly
